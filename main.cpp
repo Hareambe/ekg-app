@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
         // **Extract each lead using 4096 × 12 loop**
         for (size_t i = 0; i < dims[0]; ++i) {  // Iterate over 4096 samples
             for (size_t lead = 0; lead < 12; ++lead) {  // Iterate over 12 leads
-                double valueInMillivolts = fullData[i][lead] * 1000.0; // Convert to mV
+                double valueInMillivolts = fullData[i][lead]; // Convert to mV
                 ekgGraphData[lead].append(valueInMillivolts);
 
                 // Track min/max for each lead
