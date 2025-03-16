@@ -4,7 +4,7 @@ project(ekg-app VERSION 0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Quick QuickControls2 Graphs)
+find_package(Qt6 REQUIRED COMPONENTS Quick QuickControls2 Graphs SerialPort Sql)
 qt_standard_project_setup(REQUIRES 6.5)
 
 qt_add_executable(appekg-app
@@ -13,6 +13,11 @@ qt_add_executable(appekg-app
     src/handlers/hdf5_handler.h
     src/handlers/datasetmodel.cpp
     src/handlers/datasetmodel.h
+    ecgloader.cpp
+    ecgloader.h
+    ecgserial.h
+    ecgserial.cpp
+
 )
 
 set(HDF5_HEADER_PATH "${CMAKE_SOURCE_DIR}/headers/hdf5")  # Path to HDF5 headers
@@ -25,15 +30,42 @@ qt_add_qml_module(appekg-app
     VERSION 1.0
     QML_FILES
         Main.qml
+        Leads/LeadI.qml
+        Leads/LeadII.qml
+        Leads/LeadIII.qml
+        Leads/LeadAVR.qml
+        Leads/LeadAVL.qml
+        Leads/LeadAVF.qml
+        Leads/LeadV1.qml
+        Leads/LeadV2.qml
+        Leads/LeadV3.qml
+        Leads/LeadV4.qml
+        Leads/LeadV5.qml
+        Leads/LeadV6.qml
+        Leads/AllLeads.qml
+        EKGViewer.qml
+
 )
+
 target_link_libraries(appekg-app PRIVATE
     Qt6::Quick
     Qt6::QuickControls2
     Qt6::Graphs
+    Qt6::SerialPort
+    Qt6::Sql
     ${HDF5_LIB_PATH}/libhdf5.so
     ${HDF5_LIB_PATH}/libhdf5_hl.so
 )
+qt_add_resources(appekg-app "resources"
+    PREFIX "/"
+    FILES resources/.env
+)
+
 if(ANDROID)
+    install(FILES
+         "resources/.env"
+         DESTINATION assets/
+     )
     # Install the HDF5 shared libraries to the libs/x86_64 directory within the APK
     install(FILES
         "${HDF5_LIB_PATH}/libhdf5.so"
