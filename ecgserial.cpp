@@ -30,7 +30,7 @@ void ECGSerial::generateFakeECGData() {
     t += 1.0;  // ✅ Simulate time progression
 
     setContextProperties();  // ✅ Update QML dynamically
-    emit ecgDataUpdated();  // ✅ Notify QML that data is ready
+
 }
 
 // ✅ Dynamically expose the ECG data to QML
@@ -41,6 +41,7 @@ void ECGSerial::setContextProperties() {
         qmlEngine->rootContext()->setContextProperty(
             QString("ekgLead%1").arg(i + 1), ekgLeads[i]);
     }
-
+    emit notifyStatusChanged("✅ECG  Data Generated!");
     qDebug() << "✅ ECG Data Exposed to QML!";
+
 }

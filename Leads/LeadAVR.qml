@@ -6,50 +6,110 @@ Item {
     width: 1000
     height: 600
 
-    // ✅ Directly assign the preloaded C++ data
-    property var leadData: ekgLead6
-
-    GraphsView {
-        id: ekgGraph
+    Flickable {
+        id: flick
         width: parent.width
         height: parent.height
+        contentWidth: ekgGraph.width * ekgGraph.scale
+        contentHeight: ekgGraph.height * ekgGraph.scale
+        clip: true
+        interactive: ekgGraph.scale > 1.0 // Enable panning only when zoomed
 
-        theme: GraphsTheme {
-            colorScheme: GraphsTheme.ColorScheme.Dark
-            seriesColors: ["red"]
-            borderColors: ["gray"]
-            grid.mainColor: "#606060"
-            grid.subColor: "#404040"
-            axisX.mainColor: "white"
-            axisY.mainColor: "white"
+        ScrollBar.vertical: ScrollBar {
+            active: flick.contentHeight > flick.height
+        }
+        ScrollBar.horizontal: ScrollBar {
+            active: flick.contentWidth > flick.width
         }
 
-        axisX: ValueAxis {
-            id: xAxis
-            min: 0
-            max: leadData ? leadData.length : 4096  // ✅ Automatically set max X-axis value
+        PinchArea {
+            id: pinch
+            anchors.fill: parent
+            property real initialScale: 1.0
+            property real minScale: 1.0
+            property real maxScale: 5.0
+
+            onPinchStarted: {
+                initialScale = ekgGraph.scale
+            }
+
+            onPinchUpdated: {
+                var newScale = initialScale * pinch.scale
+                newScale = Math.max(minScale,
+                                    Math.min(maxScale,
+                                             newScale)) // Clamping zoom
+
+                var scaleRatio = newScale / ekgGraph.scale
+                ekgGraph.scale = newScale
+
+                // Adjust flickable content position to keep zoom centered
+                flick.contentX -= (pinch.center.x - flick.width / 2) * (scaleRatio - 1)
+                flick.contentY -= (pinch.center.y - flick.height / 2) * (scaleRatio - 1)
+                flick.contentWidth = ekgGraph.width * ekgGraph.scale
+                flick.contentHeight = ekgGraph.height * ekgGraph.scale
+            }
         }
 
-        axisY: ValueAxis {
-            id: yAxis
-            min: -3
-            max: 3
-        }
+        GraphsView {
+            id: ekgGraph
+            width: flick.width
+            height: flick.height
+            scale: 1.0
+            anchors.centerIn: parent
 
-        LineSeries {
-            id: ekgSeries
-            width: 2
-            capStyle: Qt.RoundCap
-            color: "red"
+            theme: GraphsTheme {
+                colorScheme: GraphsTheme.ColorScheme.Light
+                backgroundVisible: true
+                backgroundColor: "#FFF0F0"
+                grid.mainColor: "#EEAAAA"
+                grid.subColor: "#FFDADA"
+                borderColors: ["transparent"]
+                seriesColors: ["#000000"]
+            }
 
-            // ✅ Directly replace entire dataset without a loop
-            Component.onCompleted: {
-                if (leadData && leadData.length > 0) {
-                    ekgSeries.replace(leadData.map((value, index) => Qt.point(index, value)));
-                } else {
-                    console.warn("❌ No data available for Lead 1");
+            axisX: ValueAxis {
+                id: xAxis
+                min: 0
+                max: 4095
+                labelsVisible: false
+                lineVisible: false
+                tickInterval: 80
+                subTickCount: 4
+                labelDecimals: 1
+            }
+
+            axisY: ValueAxis {
+                id: yAxis
+                min: -4
+                max: 4
+                labelsVisible: false
+                lineVisible: false
+                tickInterval: 0.5
+                subTickCount: 4
+                labelDecimals: 1
+            }
+
+            LineSeries {
+                id: ekgSeries
+                width: 2
+                capStyle: Qt.RoundCap
+                color: "#000000"
+
+                Component.onCompleted: {
+                    ekgSeries.replace(ekgLead6.map((val, i) => Qt.point(i,
+                                                                        val)))
                 }
             }
         }
-    }
+        Text {
+            text: "aVR"
+            color: "#000000"
+            font.pixelSize: 50
+            anchors.left: ekgGraph.left
+            anchors.bottom: ekgGraph.bottom
+            anchors.leftMargin: 100
+            anchors.bottomMargin: 80
+            z: 999 // ensure it's drawn on top
+        }
+    }
 }

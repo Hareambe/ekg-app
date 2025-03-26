@@ -3,28 +3,24 @@ cmake_minimum_required(VERSION 3.16)
 project(ekg-app VERSION 0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
+set(CMAKE_AUTOUIC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Quick QuickControls2 Graphs SerialPort Sql)
+find_package(Qt6 REQUIRED COMPONENTS Quick QuickControls2 Graphs SerialPort Sql Network)
 qt_standard_project_setup(REQUIRES 6.5)
 
 qt_add_executable(appekg-app
     main.cpp
-    src/handlers/hdf5_handler.cpp
-    src/handlers/hdf5_handler.h
-    src/handlers/datasetmodel.cpp
-    src/handlers/datasetmodel.h
-    ecgloader.cpp
-    ecgloader.h
     ecgserial.h
     ecgserial.cpp
-
 )
 
-set(HDF5_HEADER_PATH "${CMAKE_SOURCE_DIR}/headers/hdf5")  # Path to HDF5 headers
-set(HIGHFIVE_HEADER_PATH "${CMAKE_SOURCE_DIR}/headers/highfive")  # Path to HDF5 headers
-set(HDF5_LIB_PATH "${CMAKE_SOURCE_DIR}/android/libs/x86_64") # Path to HDF5 shared libraries
+#set(HDF5_HEADER_PATH "${CMAKE_SOURCE_DIR}/headers/hdf5")         # Path to HDF5 headers
+#set(HIGHFIVE_HEADER_PATH "${CMAKE_SOURCE_DIR}/headers/highfive")   # Path to HighFive headers
 
-include_directories(${HDF5_HEADER_PATH} ${HIGHFIVE_HEADER_PATH})
+#include_directories(${HDF5_HEADER_PATH} ${HIGHFIVE_HEADER_PATH})
+
 qt_add_qml_module(appekg-app
     URI ekg-app
     VERSION 1.0
@@ -44,8 +40,29 @@ qt_add_qml_module(appekg-app
         Leads/LeadV6.qml
         Leads/AllLeads.qml
         EKGViewer.qml
-
+        QML_FILES ECGEmulator.qml
+    SOURCES
+        ecgsql.h
+        ecgsql.cpp
+        logger.cpp
+        logger.h
+        ecgemulate.h
+        ecgemulate.cpp
+        SOURCES env.h env.cpp
 )
+
+# Set default library path for OpenSSL for non-Android targets (assume x86_64)
+set(OPENSSL_LIB_PATH "${CMAKE_SOURCE_DIR}/android/libs/x86_64")
+set(ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/android")
+
+# For Android, choose OpenSSL library paths based on the target ABI
+if(ANDROID)
+    if(${ANDROID_ABI} STREQUAL "arm64-v8a")
+        set(OPENSSL_LIB_PATH "${CMAKE_SOURCE_DIR}/android/libs/arm64-v8a")
+    else()
+        set(OPENSSL_LIB_PATH "${CMAKE_SOURCE_DIR}/android/libs/x86_64")
+    endif()
+endif()
 
 target_link_libraries(appekg-app PRIVATE
     Qt6::Quick
@@ -53,9 +70,13 @@ target_link_libraries(appekg-app PRIVATE
     Qt6::Graphs
     Qt6::SerialPort
     Qt6::Sql
-    ${HDF5_LIB_PATH}/libhdf5.so
-    ${HDF5_LIB_PATH}/libhdf5_hl.so
+    Qt6::Network
+    $<$<PLATFORM_ID:Android>:${OPENSSL_LIB_PATH}/libssl_3.so>
+    $<$<PLATFORM_ID:Android>:${OPENSSL_LIB_PATH}/libcrypto_3.so>
+    $<$<NOT:$<PLATFORM_ID:Android>>:${OPENSSL_LIB_PATH}/libssl_3.so>
+    $<$<NOT:$<PLATFORM_ID:Android>>:${OPENSSL_LIB_PATH}/libcrypto_3.so>
 )
+
 qt_add_resources(appekg-app "resources"
     PREFIX "/"
     FILES resources/.env
@@ -65,49 +86,40 @@ if(ANDROID)
     install(FILES
          "resources/.env"
          DESTINATION assets/
-     )
-    # Install the HDF5 shared libraries to the libs/x86_64 directory within the APK
+    )
     install(FILES
-        "${HDF5_LIB_PATH}/libhdf5.so"
-        "${HDF5_LIB_PATH}/libhdf5_hl.so"
-        DESTINATION libs/x86_64
+        "${OPENSSL_LIB_PATH}/libssl_3.so"
+        "${OPENSSL_LIB_PATH}/libcrypto_3.so"
+        DESTINATION libs/${ANDROID_ABI}
     )
 
-    # Specify additional Android properties
     set_target_properties(appekg-app
         PROPERTIES
-           QT_ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_SOURCE_DIR}/android"
+            QT_ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_SOURCE_DIR}/android"
             QT_ANDROID_TARGET_SDK_VERSION "33"
-
     )
 
-    # Ensure that the HDF5 shared libraries are copied to the APK build directory after building
     add_custom_command(TARGET appekg-app POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory
-            "$<TARGET_FILE_DIR:appekg-app>/libs/x86_64"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:appekg-app>/libs/${ANDROID_ABI}"
     )
     add_custom_command(TARGET appekg-app POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${HDF5_LIB_PATH}/libhdf5.so"
-            "$<TARGET_FILE_DIR:appekg-app>/libs/x86_64/libhdf5.so"
+            "${OPENSSL_LIB_PATH}/libssl_3.so"
+            "$<TARGET_FILE_DIR:appekg-app>/libs/${ANDROID_ABI}/libssl_3.so"
     )
     add_custom_command(TARGET appekg-app POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${HDF5_LIB_PATH}/libhdf5_hl.so"
-            "$<TARGET_FILE_DIR:appekg-app>/libs/x86_64/libhdf5_hl.so"
+            "${OPENSSL_LIB_PATH}/libcrypto_3.so"
+            "$<TARGET_FILE_DIR:appekg-app>/libs/${ANDROID_ABI}/libcrypto_3.so"
     )
 endif()
-# Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
-# If you are developing for iOS or macOS you should consider setting an
-# explicit, fixed bundle identifier manually though.
+
 set_target_properties(appekg-app PROPERTIES
-#    MACOSX_BUNDLE_GUI_IDENTIFIER com.example.appekg-app
     MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
     MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
     MACOSX_BUNDLE TRUE
     WIN32_EXECUTABLE TRUE
 )
-
 
 include(GNUInstallDirs)
 install(TARGETS appekg-app

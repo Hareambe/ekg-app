@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Layouts
+
+// ✅ Fix for nested components
 
 
 /* ApplicationWindow {
@@ -63,21 +64,23 @@ ApplicationWindow {
     visible: true
     width: 1000
     height: 700
-    title: "EKG Data Visualization"
+    title: "EKG Data Management"
 
+    // Main UI navigation via StackView
     StackView {
         id: viewStack
         anchors.fill: parent
-        initialItem: startScreen // ✅ Show buttons first
+        initialItem: mainMenu
     }
 
+    // The Main Menu screen
     Component {
-        id: startScreen
+        id: mainMenu
         Item {
             anchors.fill: parent
 
             Column {
-                anchors.centerIn: parent // ✅ Centers buttons
+                anchors.centerIn: parent
                 spacing: 20
 
                 Button {
@@ -85,32 +88,76 @@ ApplicationWindow {
                     width: 250
                     height: 50
                     onClicked: {
-                        console.log("Button clicked, generating fake ECG data")
+                        console.log("Generating ECG Data...")
                         ecgSerial.generateFakeECGData()
                     }
                 }
 
                 Button {
-                    text: "Get Data from DB"
+                    text: "View Data"
                     width: 250
                     height: 50
-                    enabled: false // To be implemented later
+                    onClicked: {
+                        console.log("Switching to ECG Viewer...")
+                        viewStack.push(ecgViewerComponent.createObject(
+                                           viewStack, {
+                                               "stackView": viewStack
+                                           }))
+                    }
+                }
+
+                Button {
+                    text: "Upload Data to DB"
+                    width: 250
+                    height: 50
+                    onClicked: {
+                        console.log("Uploading ECG Data to Supabase...")
+                        ecgSql.saveECGData(ekgLead1, ekgLead2, ekgLead3,
+                                           ekgLead4, ekgLead5, ekgLead6,
+                                           ekgLead7, ekgLead8, ekgLead9,
+                                           ekgLead10, ekgLead11, ekgLead12)
+                    }
+                }
+
+                Button {
+                    text: "Get Latest Data from DB"
+                    width: 250
+                    height: 50
+                    onClicked: {
+                        console.log("Fetching latest ECG Data...")
+                        ecgSql.loadLatestECGData()
+                    }
+                }
+
+                Button {
+                    text: "Test ECG Emulation"
+                    width: 250
+                    height: 50
+                    onClicked: {
+                        console.log("Switching to ECG Emulator view...")
+                        viewStack.push(ecgEmulatorComponent.createObject(
+                                           viewStack, {
+                                               "stackView": viewStack
+                                           }))
+                    }
                 }
             }
         }
     }
 
-    // ✅ Ensure ECG data is fully loaded before switching screens
-    Connections {
-        target: ecgSerial
-        function onEcgDataUpdated() {
-            console.log("ECG Data Generated. Switching to Viewer...")
-            viewStack.push(ecgViewer)
+    // EKGViewer screen component
+    Component {
+        id: ecgViewerComponent
+        EKGViewer {
+            stackView: viewStack
         }
     }
 
+    // ECGEmulator screen component
     Component {
-        id: ecgViewer
-        EKGViewer {}
+        id: ecgEmulatorComponent
+        ECGEmulator {
+            stackView: viewStack
+        }
     }
 }

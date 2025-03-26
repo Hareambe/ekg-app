@@ -12,8 +12,10 @@ public:
     explicit ECGSerial(QQmlApplicationEngine *engine, QObject *parent = nullptr);
     Q_INVOKABLE void generateFakeECGData();  // ✅ Only generate once
 
+
 signals:
-    void ecgDataUpdated();  // ✅ Notify QML after data is ready
+    void notifyStatusChanged(const QString &message);
+
 
 private:
     QVariantList ekgLeads[12];  // ✅ Store 12-lead ECG data
